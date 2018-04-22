@@ -8,6 +8,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 
 import java.util.ArrayList;
@@ -28,6 +29,20 @@ public class XposedMod implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(final LoadPackageParam lpparam) throws Throwable {
         if (lpparam.packageName.equals("com.samsung.android.da.daagent")) {
+            final Class classPmWrapper = findClass("com.samsung.android.da.daagent.fwwrapper.PmWrapper", lpparam.classLoader);
+            findAndHookMethod(classPmWrapper, "getPossibleDualAppPackages", Context.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            Context context = (Context) param.args[0];
+                            ArrayList<String> list = getAllInstalledPkg(context);
+                            param.setResult(list);
+                        }
+                    });
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) return;
+            // below classes added after oreo
+
             final Class classDualAppProvider = findClass("com.samsung.android.da.daagent.provider.DualAppProvider", lpparam.classLoader);
             findAndHookMethod(classDualAppProvider, "query", Uri.class, String[].class, String.class, String[].class, String.class,
                     new XC_MethodHook() {
@@ -47,19 +62,6 @@ public class XposedMod implements IXposedHookLoadPackage {
                             }
                         }
                     });
-
-
-            final Class classPmWrapper = findClass("com.samsung.android.da.daagent.fwwrapper.PmWrapper", lpparam.classLoader);
-            findAndHookMethod(classPmWrapper, "getPossibleDualAppPackages", Context.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            Context context = (Context) param.args[0];
-                            ArrayList<String> list = getAllInstalledPkg(context);
-                            param.setResult(list);
-                        }
-                    });
-
 
             final Class<?> classDAUtility = findClass("com.samsung.android.da.daagent.utils.DAUtility", lpparam.classLoader);
             final Class classDaWrapper = findClass("com.samsung.android.da.daagent.fwwrapper.DaWrapper", lpparam.classLoader);
